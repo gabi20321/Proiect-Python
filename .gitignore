@@ -1,0 +1,26 @@
+# medii virtuale si cache python
+env/
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+avatars/
+
+# configurari editor
+.vscode/
+.idea/
+
+# variabile de mediu si chei api 
+.env
+
+# baze de date si fisiere json locale
+*.db
+*.sqlite3
+musicmeter_v2.db
+catalog.json
+users.json
+requirements.txt
+
+# imagini descarcate sau incarcate local
+covers/
+avatars/
