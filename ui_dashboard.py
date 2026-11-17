@@ -106,6 +106,8 @@ class DashboardUI:
         self.current_tracks, self.selected_track, self.current_half_stars = [], None, 0
         self.image_cache, self.card_registry, self.lazy_slots = {}, {}, []
         self._lazy_after_id, self.last_cols = None, 0
+        self._search_after_id = None
+        self._resize_after_id = None
         self.placeholder_img = self._build_placeholder_ctk((140, 140))
 
         self.build_shell()
@@ -220,8 +222,11 @@ class DashboardUI:
     def _on_canvas_configure(self, event):#rearanjare coloane la redimensionarea ferestrei
         self.canvas.itemconfig(self.canvas_window, width=event.width)
         if self.current_view in ("explore", "foryou", "library") and self.current_tracks:
-            if (new_cols := max(2, event.width // 176)) != self.last_cols:
-                self.render_poster_grid(self.current_tracks)
+            new_cols = max(2, event.width // 176)
+            if new_cols != self.last_cols:
+                if self._resize_after_id:
+                    self.root.after_cancel(self._resize_after_id)
+                self._resize_after_id = self.root.after(150, lambda: self.render_poster_grid(self.current_tracks))
 
     def _setup_smooth_scroll(self):#configurare scroll din rotita mouse-ului
         def _in_canvas(w) -> bool:
@@ -502,7 +507,7 @@ class DashboardUI:
         w = self.canvas.winfo_width()
         self.last_cols = cols = max(2, (780 if w <= 20 else w) // 176)
         fav_ids = {t["id"] for t in auth.get_user_library(self.user_id)["favorites"]}
-        for idx, track in enumerate(tracks):
+        for idx, track in enumerate(tracks[:48]):
             self._create_poster_card(holder, track, idx // cols, idx % cols, track["id"] in fav_ids)
         self._schedule_lazy_load()
 
@@ -588,7 +593,7 @@ class DashboardUI:
             if os.path.exists(full):
                 try:
                     with Image.open(full) as im:
-                        pil_cp = im.convert("RGB").resize(sz, Image.Resampling.LANCZOS)
+                        pil_cp = im.convert("RGB").resize(sz, Image.Resampling.BILINEAR)
                     self.root.after(0, self._apply_decoded_cover, slot["label"], rel, sz, pil_cp)
                 except Exception:
                     pass
@@ -680,8 +685,6 @@ class DashboardUI:
         self.select_track(self.selected_track)
         if self.current_view in ("library", "profile", "foryou"):
             self.switch_tab(self.current_view)
-        elif mode == "like":
-            self.render_poster_grid(self.current_tracks)
 
     def save_review_and_rating(self):#salvare recenzie scrisa si nota
         if not self.selected_track:
@@ -696,17 +699,11 @@ class DashboardUI:
         messagebox.showinfo("Salvat", "Nota si recenzia au fost salvate!")
 
     def on_live_search_key(self, event):#filtrare piese din baza locala in timp ce tastezi
-        if event.keysym == "Return":
+         if event.keysym == "Return":
             return
-        if not (q := self.search_entry.get().strip()):
-            self.show_explore_view()
-            return
-        self.sub_filter_bar.pack_forget()
-        self.current_tracks = hits = search_local_tracks(q)
-        self.section_title.configure(text=f"FILTRARE LOCALA PENTRU \"{q.upper()}\"")
-        self.section_subtitle.configure(text=f"{len(hits)} rezultate locale (Apasa Enter pentru online)")
-        self.render_poster_grid(hits, f"Niciun rezultat local pentru \"{q}\"",
-                                "Apasa tasta Enter sau butonul 'Cauta Online' pentru a descarca piese noi.")
+        if self._search_after_id:
+            self.root.after_cancel(self._search_after_id)
+        self._search_after_id = self.root.after(250, self._execute_live_search)
 
     def trigger_online_search(self):#pornire cautare si descarcare piese noi de pe internet
         if not (q := self.search_entry.get().strip()):
