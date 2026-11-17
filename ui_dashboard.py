@@ -701,9 +701,9 @@ class DashboardUI:
     def on_live_search_key(self, event):#filtrare piese din baza locala in timp ce tastezi
          if event.keysym == "Return":
             return
-        if self._search_after_id:
+         if self._search_after_id:
             self.root.after_cancel(self._search_after_id)
-        self._search_after_id = self.root.after(250, self._execute_live_search)
+         self._search_after_id = self.root.after(250, self._execute_live_search)
 
     def trigger_online_search(self):#pornire cautare si descarcare piese noi de pe internet
         if not (q := self.search_entry.get().strip()):
